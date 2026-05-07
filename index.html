@@ -48,6 +48,11 @@ th{font-size:.82rem;color:var(--text);background:var(--soft)}
 @media(max-width:800px){.grid{grid-template-columns:1fr 1fr} main{padding:10px}.card{padding:12px}}
 @media(max-width:560px){.grid,.summary,.ratebox{grid-template-columns:1fr}}
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+
 </head>
 <body>
 <header>
@@ -96,6 +101,8 @@ Color personalizado
 <button onclick="addRow()">Agregar fila</button>
 <button class="secondary" onclick="saveData()">Guardar</button>
 <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
+<button class="secondary" onclick="exportExcel()">Exportar Excel</button>
+<button class="secondary" onclick="exportPDF()">Exportar PDF</button>
 <button class="secondary" onclick="exportJSON()">Respaldar JSON</button>
 <button class="secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
 <input id="importFile" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
@@ -420,6 +427,89 @@ if('serviceWorker' in navigator){
 }
 
 loadData();
+
+function collectTableData(){
+ const rows=[[
+  'Fecha','Tipo de día','Inicio','Salida',
+  '% diurna','% nocturna',
+  'Horas diurnas','Horas nocturnas',
+  'Actividad / motivo',
+  'Pago diurno','Pago nocturno','Total día'
+ ]];
+
+ document.querySelectorAll('#tbody tr').forEach(tr=>{
+  rows.push([
+   tr.querySelector('.date').value,
+   tr.querySelector('.type').value,
+   tr.querySelector('.start').value,
+   tr.querySelector('.end').value,
+   tr.querySelector('.dayPct') ? tr.querySelector('.dayPct').textContent : '',
+   tr.querySelector('.nightPct') ? tr.querySelector('.nightPct').textContent : '',
+   tr.querySelector('.dayHours').textContent,
+   tr.querySelector('.nightHours').textContent,
+   tr.querySelector('.activity').value.replace(/\n/g,' '),
+   tr.querySelector('.dayPay').textContent,
+   tr.querySelector('.nightPay').textContent,
+   tr.querySelector('.totalPay').textContent
+  ]);
+ });
+
+ return rows;
+}
+
+function exportExcel(){
+ calculate();
+
+ const wb = XLSX.utils.book_new();
+ const ws = XLSX.utils.aoa_to_sheet(collectTableData());
+
+ const cols = [
+  {wch:12},{wch:14},{wch:10},{wch:10},
+  {wch:10},{wch:10},{wch:12},{wch:12},
+  {wch:40},{wch:14},{wch:14},{wch:14}
+ ];
+ ws['!cols']=cols;
+
+ XLSX.utils.book_append_sheet(wb, ws, 'Horas Extra');
+
+ XLSX.writeFile(wb, 'reporte_horas_extra.xlsx');
+}
+
+async function exportPDF(){
+ calculate();
+
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF('landscape');
+
+ doc.setFontSize(18);
+ doc.text('Reporte de Horas Extra', 14, 18);
+
+ doc.setFontSize(10);
+ doc.text('Generado: ' + new Date().toLocaleString(), 14, 26);
+
+ doc.autoTable({
+   head:[collectTableData()[0]],
+   body:collectTableData().slice(1),
+   startY:32,
+   styles:{fontSize:8},
+   headStyles:{fillColor:[37,99,235]},
+   margin:{left:8,right:8}
+ });
+
+ const finalY = doc.lastAutoTable.finalY || 40;
+
+ doc.setFontSize(12);
+ doc.text('Resumen', 14, finalY + 12);
+
+ doc.setFontSize(10);
+ doc.text('Total horas extra: ' + document.getElementById('totalHours').textContent, 14, finalY + 20);
+ doc.text('Horas diurnas: ' + document.getElementById('totalDayHours').textContent, 14, finalY + 28);
+ doc.text('Horas nocturnas: ' + document.getElementById('totalNightHours').textContent, 14, finalY + 36);
+ doc.text('Total ganado: ' + document.getElementById('totalEarned').textContent, 14, finalY + 44);
+
+ doc.save('reporte_horas_extra.pdf');
+}
+
 </script>
 </body>
 </html>
