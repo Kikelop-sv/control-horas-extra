@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d4ed8">
+<title>Control de Horas Extra</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+ --bg:#f6f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;
+ --accent:#2563eb;--danger:#dc2626;--ok:#16a34a;--soft:#f9fafb;--warn:#b45309
+}
+[data-theme="dark"]{
+ --bg:#0f172a;--card:#111827;--text:#e5e7eb;--muted:#9ca3af;--line:#374151;
+ --accent:#3b82f6;--danger:#ef4444;--ok:#22c55e;--soft:#1f2937;--warn:#f59e0b
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{padding:22px 16px;text-align:center;background:linear-gradient(135deg,var(--accent),#0f172a);color:white}
+header h1{margin:0 0 6px;font-size:1.45rem}
+header p{margin:0;opacity:.9}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+label{display:block;font-size:.86rem;color:var(--muted);margin-bottom:5px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--text)}
+textarea{min-height:42px;resize:vertical}
+button{border:0;border-radius:10px;padding:10px 13px;font-weight:700;cursor:pointer;background:var(--accent);color:white}
+button.secondary{background:#374151}
+button.danger{background:var(--danger)}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:1440px}
+th,td{border-bottom:1px solid var(--line);padding:9px;text-align:left;vertical-align:top}
+th{font-size:.82rem;color:var(--text);background:var(--soft)}
+.result{font-weight:800;white-space:nowrap}
+.summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.summary div,.ratebox div{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:12px}
+.summary strong,.ratebox strong{display:block;font-size:1.12rem;margin-top:5px}
+.small{font-size:.85rem;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-size:.8rem;color:var(--muted)}
+.warning{color:var(--warn);font-weight:700}
+.oktext{color:var(--ok);font-weight:700}
+.ratebox{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pct{font-weight:800;white-space:nowrap}
+@media(max-width:1100px){.summary{grid-template-columns:repeat(3,1fr)}.ratebox{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr} main{padding:10px}.card{padding:12px}}
+@media(max-width:560px){.grid,.summary,.ratebox{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Control de Horas Extra</h1>
+<p>Registro local con cálculo automático de horas diurnas, nocturnas, descanso y asueto.</p>
+</header>
+
+<main>
+<section class="card">
+<div class="actions">
+<span class="badge">Los datos se guardan solo en este navegador</span>
+<span class="badge">Porcentajes bloqueados + color personalizado</span>
+<button class="secondary" onclick="toggleTheme()">Modo oscuro/claro</button>
+<label style="display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:.9rem">
+Color personalizado
+<input id="accentPicker" type="color" value="#2563eb" style="width:52px;height:40px;padding:3px">
+</label>
+<button class="secondary" onclick="resetAccent()">Restablecer color</button>
+</div>
+</section>
+
+<section class="card">
+<h2>Configuración</h2>
+<div class="grid">
+<div><label>Sueldo mensual</label><input id="salary" type="number" value="1500" step="0.01"></div>
+<div><label>Días base del mes</label><input id="daysBase" type="number" value="30" step="1"></div>
+<div><label>Horas por día</label><input id="hoursDay" type="number" value="8" step="0.25"></div>
+<div><label>Máximo mensual extra</label><input id="maxExtra" type="number" value="1200" step="0.01"></div>
+<div><label>Inicio horario nocturno</label><input id="nightStart" type="time" value="19:00"></div>
+</div>
+<p class="small">Sábado y domingo se marcan como descanso automáticamente. Los asuetos se seleccionan manualmente.</p>
+</section>
+
+<section class="card">
+<h2>Reglas de pago configuradas</h2>
+<div class="ratebox">
+<div><span>Hora normal base</span><strong id="hourRate">$0.00</strong></div>
+<div><span>Día normal</span><strong>Diurna 200% / Nocturna 225%</strong><span id="normalRates" class="small">$0.00 / $0.00</span></div>
+<div><span>Descanso sábado/domingo</span><strong>Diurna 150% / Nocturna 175%</strong><span id="restRates" class="small">$0.00 / $0.00</span></div>
+<div><span>Asueto de ley</span><strong>Diurna 200% / Nocturna 225%</strong><span id="holidayRates" class="small">$0.00 / $0.00</span></div>
+</div>
+</section>
+
+<section class="card">
+<div class="actions">
+<button onclick="addRow()">Agregar fila</button>
+<button class="secondary" onclick="saveData()">Guardar</button>
+<button class="secondary" onclick="exportCSV()">Exportar CSV</button>
+<button class="secondary" onclick="exportJSON()">Respaldar JSON</button>
+<button class="secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+<input id="importFile" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
+<button class="danger" onclick="clearData()">Borrar todo</button>
+</div>
+</section>
+
+<section class="card">
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Fecha</th>
+<th>Tipo de día</th>
+<th>Inicio</th>
+<th>Salida</th>
+<th>% diurna</th>
+<th>% nocturna</th>
+<th>H. diurnas</th>
+<th>H. nocturnas</th>
+<th>Actividad / motivo</th>
+<th>Pago diurno</th>
+<th>Pago nocturno</th>
+<th>Total día</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</section>
+
+<section class="card">
+<h2>Resumen</h2>
+<div class="summary">
+<div><span>Total horas extra</span><strong id="totalHours">0.00</strong></div>
+<div><span>Horas diurnas</span><strong id="totalDayHours">0.00</strong></div>
+<div><span>Horas nocturnas</span><strong id="totalNightHours">0.00</strong></div>
+<div><span>Total ganado</span><strong id="totalEarned">$0.00</strong></div>
+<div><span>Máximo mensual</span><strong id="maxMonthly">$0.00</strong></div>
+<div><span>Disponible</span><strong id="remaining">$0.00</strong></div>
+</div>
+<p id="limitMsg" class="small"></p>
+</section>
+</main>
+
+<script>
+const STORAGE_KEY='controlHorasExtra_v7_color';
+
+const FIXED_PCTS = {
+  normal: { day: 200, night: 225 },
+  descanso: { day: 150, night: 175 },
+  asueto: { day: 200, night: 225 }
+};
+
+function money(n){return '$'+Number(n||0).toFixed(2)}
+function toMin(t){if(!t)return 0;let [h,m]=t.split(':').map(Number);return h*60+m}
+
+function toggleTheme(){
+ const next=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+ document.documentElement.setAttribute('data-theme',next);
+ localStorage.setItem('theme',next);
+}
+(function(){const t=localStorage.getItem('theme'); if(t) document.documentElement.setAttribute('data-theme',t);})();
+
+function setAccent(color){
+ document.documentElement.style.setProperty('--accent', color);
+ const meta=document.querySelector('meta[name="theme-color"]');
+ if(meta) meta.setAttribute('content', color);
+ localStorage.setItem('accentColor', color);
+ const picker=document.getElementById('accentPicker');
+ if(picker) picker.value=color;
+}
+function resetAccent(){
+ const defaultColor='#2563eb';
+ localStorage.removeItem('accentColor');
+ setAccent(defaultColor);
+}
+(function(){
+ const saved=localStorage.getItem('accentColor') || '#2563eb';
+ setAccent(saved);
+ window.addEventListener('DOMContentLoaded',()=>{
+  const picker=document.getElementById('accentPicker');
+  if(picker){
+   picker.value=saved;
+   picker.addEventListener('input',()=>setAccent(picker.value));
+  }
+ });
+})();
+
+
+function getConfig(){
+ const salary=+document.getElementById('salary').value||0;
+ const daysBase=+document.getElementById('daysBase').value||30;
+ const hoursDay=+document.getElementById('hoursDay').value||8;
+ return {
+  salary,daysBase,hoursDay,
+  maxExtra:+document.getElementById('maxExtra').value||0,
+  nightStart:toMin(document.getElementById('nightStart').value||'19:00'),
+  hourRate:salary/daysBase/hoursDay
+ };
+}
+
+function getPercents(type){
+ return FIXED_PCTS[type] || FIXED_PCTS.normal;
+}
+
+function detectType(dateStr){
+ if(!dateStr)return 'normal';
+ const d=new Date(dateStr+'T12:00:00');
+ const day=d.getDay();
+ return (day===0||day===6)?'descanso':'normal';
+}
+
+function calcHours(start,end,nightStart){
+ let s=toMin(start), e=toMin(end);
+ if(e<s)e+=1440;
+ let ns=nightStart;
+ if(ns<s) ns+=1440;
+ let dayM=Math.max(0,Math.min(e,ns)-s);
+ let nightM=Math.max(0,e-Math.max(s,ns));
+ return {day:dayM/60,night:nightM/60};
+}
+
+function rowTemplate(data={}){
+ const tr=document.createElement('tr');
+ tr.innerHTML=`
+<td><input type="date" class="date" value="${data.date||''}"></td>
+<td>
+<select class="type">
+<option value="normal">Normal</option>
+<option value="descanso">Descanso / fin de semana</option>
+<option value="asueto">Asueto</option>
+</select>
+</td>
+<td><input type="time" class="start" value="${data.start||'16:00'}"></td>
+<td><input type="time" class="end" value="${data.end||'21:00'}"></td>
+<td class="pct dayPct">200%</td>
+<td class="pct nightPct">225%</td>
+<td class="result dayHours">0.00</td>
+<td class="result nightHours">0.00</td>
+<td><textarea class="activity" placeholder="Ej: cierre, inventario, soporte, emergencia...">${data.activity||''}</textarea></td>
+<td class="result dayPay">$0.00</td>
+<td class="result nightPay">$0.00</td>
+<td class="result totalPay">$0.00</td>
+<td><button class="danger" onclick="this.closest('tr').remove();calculate();saveData()">X</button></td>`;
+ tr.querySelector('.type').value=data.type||detectType(data.date)||'normal';
+
+ tr.querySelectorAll('input,select,textarea').forEach(el=>{
+  el.addEventListener('input',()=>{
+   if(el.classList.contains('date')) tr.querySelector('.type').value=detectType(el.value);
+   calculate();
+   saveData();
+  });
+ });
+ return tr;
+}
+
+function addRow(data={}){
+ document.getElementById('tbody').appendChild(rowTemplate(data));
+ calculate();
+ saveData();
+}
+
+function updateRateBoxes(cfg){
+ const n=FIXED_PCTS.normal, r=FIXED_PCTS.descanso, a=FIXED_PCTS.asueto;
+ document.getElementById('hourRate').textContent=money(cfg.hourRate);
+ document.getElementById('normalRates').textContent=money(cfg.hourRate*n.day/100)+' / '+money(cfg.hourRate*n.night/100);
+ document.getElementById('restRates').textContent=money(cfg.hourRate*r.day/100)+' / '+money(cfg.hourRate*r.night/100);
+ document.getElementById('holidayRates').textContent=money(cfg.hourRate*a.day/100)+' / '+money(cfg.hourRate*a.night/100);
+}
+
+function calculate(){
+ const cfg=getConfig();
+ updateRateBoxes(cfg);
+
+ let totalEarned=0,totalHours=0,totalDayHours=0,totalNightHours=0;
+
+ document.querySelectorAll('#tbody tr').forEach(tr=>{
+  const type=tr.querySelector('.type').value;
+  const h=calcHours(tr.querySelector('.start').value,tr.querySelector('.end').value,cfg.nightStart);
+  const p=getPercents(type);
+
+  const dayPay=h.day*cfg.hourRate*(p.day/100);
+  const nightPay=h.night*cfg.hourRate*(p.night/100);
+  const total=dayPay+nightPay;
+
+  totalDayHours+=h.day;
+  totalNightHours+=h.night;
+  totalHours+=h.day+h.night;
+  totalEarned+=total;
+
+  tr.querySelector('.dayPct').textContent=p.day+'%';
+  tr.querySelector('.nightPct').textContent=p.night+'%';
+  tr.querySelector('.dayHours').textContent=h.day.toFixed(2);
+  tr.querySelector('.nightHours').textContent=h.night.toFixed(2);
+  tr.querySelector('.dayPay').textContent=money(dayPay);
+  tr.querySelector('.nightPay').textContent=money(nightPay);
+  tr.querySelector('.totalPay').textContent=money(total);
+ });
+
+ document.getElementById('totalHours').textContent=totalHours.toFixed(2);
+ document.getElementById('totalDayHours').textContent=totalDayHours.toFixed(2);
+ document.getElementById('totalNightHours').textContent=totalNightHours.toFixed(2);
+ document.getElementById('totalEarned').textContent=money(totalEarned);
+ document.getElementById('maxMonthly').textContent=money(cfg.maxExtra);
+ document.getElementById('remaining').textContent=money(Math.max(0,cfg.maxExtra-totalEarned));
+
+ const msg=document.getElementById('limitMsg');
+ if(cfg.maxExtra && totalEarned>cfg.maxExtra){
+  msg.innerHTML='<span class="warning">Aviso:</span> ya superaste el máximo mensual configurado por '+money(totalEarned-cfg.maxExtra)+'.';
+ } else {
+  msg.innerHTML='<span class="oktext">Disponible:</span> aún puedes generar '+money(Math.max(0,cfg.maxExtra-totalEarned))+' antes de llegar al máximo configurado.';
+ }
+}
+
+function getRows(){
+ return [...document.querySelectorAll('#tbody tr')].map(tr=>({
+  date:tr.querySelector('.date').value,
+  type:tr.querySelector('.type').value,
+  start:tr.querySelector('.start').value,
+  end:tr.querySelector('.end').value,
+  activity:tr.querySelector('.activity').value
+ }));
+}
+
+function getAllData(){
+ const cfg={};
+ ['salary','daysBase','hoursDay','maxExtra','nightStart'].forEach(id=>{
+  cfg[id]=document.getElementById(id).value;
+ });
+ return {cfg,rows:getRows(),updatedAt:new Date().toISOString(),version:'v7-color'};
+}
+
+function saveData(){
+ localStorage.setItem(STORAGE_KEY,JSON.stringify(getAllData()));
+}
+
+function loadData(){
+ const raw=localStorage.getItem(STORAGE_KEY);
+ if(raw){
+  try{
+   const saved=JSON.parse(raw);
+   Object.entries(saved.cfg||{}).forEach(([id,v])=>{
+    if(document.getElementById(id))document.getElementById(id).value=v;
+   });
+   (saved.rows||[]).forEach(addRow);
+  }catch(e){}
+ }
+ if(!document.querySelector('#tbody tr')) addRow();
+ calculate();
+}
+
+function clearData(){
+ if(confirm('¿Borrar todos los registros guardados en este navegador?')){
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('tbody').innerHTML='';
+  addRow();
+ }
+}
+
+function exportCSV(){
+ calculate();
+ const rows=[['Fecha','Tipo de dia','Inicio','Salida','Porcentaje diurno','Porcentaje nocturno','Horas diurnas','Horas nocturnas','Actividad / motivo','Pago diurno','Pago nocturno','Total dia']];
+ document.querySelectorAll('#tbody tr').forEach(tr=>{
+  rows.push([
+   tr.querySelector('.date').value,
+   tr.querySelector('.type').value,
+   tr.querySelector('.start').value,
+   tr.querySelector('.end').value,
+   tr.querySelector('.dayPct').textContent,
+   tr.querySelector('.nightPct').textContent,
+   tr.querySelector('.dayHours').textContent,
+   tr.querySelector('.nightHours').textContent,
+   tr.querySelector('.activity').value.replace(/\n/g,' '),
+   tr.querySelector('.dayPay').textContent,
+   tr.querySelector('.nightPay').textContent,
+   tr.querySelector('.totalPay').textContent
+  ]);
+ });
+ downloadFile('registro_horas_extra.csv', rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'), 'text/csv;charset=utf-8;');
+}
+
+function exportJSON(){
+ downloadFile('respaldo_horas_extra.json', JSON.stringify(getAllData(),null,2), 'application/json;charset=utf-8;');
+}
+
+function importJSON(event){
+ const file=event.target.files[0];
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const saved=JSON.parse(reader.result);
+   Object.entries(saved.cfg||{}).forEach(([id,v])=>{if(document.getElementById(id))document.getElementById(id).value=v;});
+   document.getElementById('tbody').innerHTML='';
+   (saved.rows||[]).forEach(addRow);
+   saveData();
+   calculate();
+   alert('Respaldo importado correctamente.');
+  }catch(e){ alert('No se pudo importar el archivo.');}
+ };
+ reader.readAsText(file);
+ event.target.value='';
+}
+
+function downloadFile(filename, content, type){
+ const blob=new Blob([content],{type});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download=filename;
+ a.click();
+ URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll('#salary,#daysBase,#hoursDay,#maxExtra,#nightStart').forEach(el=>{
+ el.addEventListener('input',()=>{calculate();saveData()});
+});
+
+if('serviceWorker' in navigator){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+loadData();
+</script>
+</body>
+</html>
