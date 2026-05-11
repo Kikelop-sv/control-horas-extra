@@ -1,8 +1,9 @@
-# Control de Horas Extra v9
+# Control de Horas Extra v10
 
-Incluye registro real y proyeccion mensual.
+El Excel de entrega incluye encabezado con colaborador, cargo, plaza y fecha.
 
-- Registro real: para fin de mes.
-- Proyeccion mensual: para inicio de mes.
-- Exporta CSV, Excel y PDF en ambos modulos.
-- Datos guardados localmente en cada navegador.
+La tabla del Excel solo exporta:
+- Fecha
+- Hora de entrada
+- Hora de salida
+- Actividad / motivo
